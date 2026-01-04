@@ -14,6 +14,7 @@ import pytz
 import requests
 from threading import Lock
 
+from urllib.parse import quote
 from flask import Flask, render_template, request, jsonify, Response, url_for, send_from_directory
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
@@ -24,6 +25,13 @@ ALLOWED_EXTS = ("jpg", "png", "webp")
 def get_avatar_static_dir():
     """Get the correct avatar static directory path"""
     return Path(app.static_folder) / "avatars"
+
+def convert_to_baidu_url(url):
+    """Convert original URL to Baidu CDN proxy URL"""
+    if not url:
+        return url
+    base_url = "https://image.baidu.com/search/down?url="
+    return base_url + quote(url)
 
 @app.template_global()
 def avatar_src(from_uid: int | str, size: int = 96) -> str:
@@ -164,15 +172,17 @@ def load_and_process_data():
                     if isinstance(pic_infos, dict):
                         for pic_id, pic_info in pic_infos.items():
                             if isinstance(pic_info, dict):
-                                thumbnail_url = pic_info.get('thumbnail_pic')
-                                if thumbnail_url:
-                                    image_urls.append(thumbnail_url)
+                                # Use original_pic if available, fallback to thumbnail
+                                img_url = pic_info.get('original_pic') or pic_info.get('thumbnail_pic')
+                                if img_url:
+                                    image_urls.append(convert_to_baidu_url(img_url))
                     elif isinstance(pic_infos, list):
                         for pic_info in pic_infos:
                             if isinstance(pic_info, dict):
-                                thumbnail_url = pic_info.get('thumbnail_pic')
-                                if thumbnail_url:
-                                    image_urls.append(thumbnail_url)
+                                # Use original_pic if available, fallback to thumbnail
+                                img_url = pic_info.get('original_pic') or pic_info.get('thumbnail_pic')
+                                if img_url:
+                                    image_urls.append(convert_to_baidu_url(img_url))
                 
                 # If no text but has images, add placeholder text
                 if is_image and not text.strip():
