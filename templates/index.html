@@ -1,0 +1,495 @@
+{% extends "layout.html" %}
+
+{% block content %}
+    <!-- Include Filters -->
+    {% include "_filters.html" %}
+    
+    <!-- Messages List -->
+    <div class="space-y-4">
+        {% if messages %}
+            {% for message in messages %}
+                {% include "_message_card.html" %}
+            {% endfor %}
+        {% else %}
+            <!-- Empty State -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body text-center py-12">
+                    <div class="text-6xl mb-4">📭</div>
+                    <h2 class="card-title justify-center text-2xl mb-2">暂无消息</h2>
+                    <p class="text-base-content/70">
+                        {% if filters.q or filters.uids or filters.start or filters.end or filters.types %}
+                            当前筛选条件下没有找到匹配的消息，请尝试调整筛选条件。
+                        {% else %}
+                            数据文件中没有找到任何消息记录。
+                        {% endif %}
+                    </p>
+                    {% if filters.q or filters.uids or filters.start or filters.end or filters.types %}
+                        <div class="card-actions justify-center mt-4">
+                            <a href="/" class="btn btn-primary">清除所有筛选</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+        <div class="card bg-base-100 shadow-xl mt-6">
+            <div class="card-body">
+                <div class="flex justify-between items-center">
+                    <div class="text-sm text-base-content/70">
+                        第 {{ pagination.page }} 页，共 {{ pagination.pages }} 页
+                        (显示第 {{ pagination.start_item }}-{{ pagination.end_item }} 条，共 {{ pagination.total }} 条)
+                    </div>
+                    
+                    <div class="join">
+                        <!-- First Page -->
+                        {% if pagination.page > 1 %}
+                            <a href="{{ pagination.first_url }}" class="join-item btn btn-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
+                                </svg>
+                            </a>
+                            <a href="{{ pagination.prev_url }}" class="join-item btn btn-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                </svg>
+                            </a>
+                        {% else %}
+                            <button class="join-item btn btn-sm btn-disabled">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
+                                </svg>
+                            </button>
+                            <button class="join-item btn btn-sm btn-disabled">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                </svg>
+                            </button>
+                        {% endif %}
+                        
+                        <!-- Page Numbers -->
+                        {% for page_num in pagination.page_range %}
+                            {% if page_num == pagination.page %}
+                                <button class="join-item btn btn-sm btn-active">{{ page_num }}</button>
+                            {% elif page_num == '...' %}
+                                <button class="join-item btn btn-sm btn-disabled">...</button>
+                            {% else %}
+                                <a href="{{ pagination.page_urls[page_num] }}" class="join-item btn btn-sm">{{ page_num }}</a>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        <!-- Next/Last Page -->
+                        {% if pagination.page < pagination.pages %}
+                            <a href="{{ pagination.next_url }}" class="join-item btn btn-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </a>
+                            <a href="{{ pagination.last_url }}" class="join-item btn btn-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
+                                </svg>
+                            </a>
+                        {% else %}
+                            <button class="join-item btn btn-sm btn-disabled">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </button>
+                            <button class="join-item btn btn-sm btn-disabled">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
+                                </svg>
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+    <!-- Speaker Selection Modal -->
+    <dialog id="speaker-modal" class="modal">
+        <div class="modal-box max-w-2xl">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            
+            <h3 class="font-bold text-lg mb-4">选择发言人</h3>
+            
+            <!-- Search Box -->
+            <div class="form-control mb-4">
+                <input type="text" id="speaker-search" placeholder="搜索发言人..." 
+                       class="input input-bordered w-full" 
+                       oninput="searchSpeakers()">
+            </div>
+            
+            <!-- Selected Speakers Display -->
+            <div class="mb-4">
+                <div class="text-sm font-medium mb-2">已选择的发言人:</div>
+                <div id="selected-speakers" class="flex flex-wrap gap-2 min-h-[2rem] p-2 bg-base-200 rounded-lg">
+                    <!-- Selected speakers will be added here by JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Speaker List -->
+            <div class="max-h-96 overflow-y-auto border rounded-lg">
+                {% if available_speakers %}
+                    {% for speaker in available_speakers %}
+                        <div class="speaker-item flex items-center gap-3 p-3 hover:bg-base-200 border-b border-base-300 last:border-b-0">
+                            <label class="flex items-center gap-3 cursor-pointer flex-1">
+                                <input type="checkbox" 
+                                       id="speaker_{{ speaker.uid }}" 
+                                       name="selected_speakers" 
+                                       value="{{ speaker.uid }}"
+                                       {% if speaker.uid|string in current_speaker_uids %}checked{% endif %}
+                                       class="checkbox checkbox-sm"
+                                       onchange="toggleSpeaker('{{ speaker.uid }}', '{{ speaker.name|e }}')">
+                                
+                                <!-- Avatar -->
+                                <div class="avatar">
+                                    <div class="w-8 h-8 rounded-full">
+                                        <img src="{{ avatar_src(speaker.uid, 32) }}" 
+                                             alt="{{ speaker.name }}"
+                                             loading="lazy">
+                                    </div>
+                                </div>
+                                
+                                <!-- Name and Count -->
+                                <div class="flex-1">
+                                    <div class="speaker-name font-medium">{{ speaker.name }}</div>
+                                    <div class="text-xs text-base-content/60">{{ speaker.count }} 条消息</div>
+                                </div>
+                            </label>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="p-4 text-center text-base-content/60">
+                        暂无发言人数据
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Modal Actions -->
+            <div class="modal-action">
+                <button type="button" onclick="applySpeakerFilter()" class="btn btn-primary">应用筛选</button>
+                <form method="dialog">
+                    <button class="btn">取消</button>
+                </form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+    
+    <!-- Image Modal -->
+    <dialog id="image-modal" class="modal">
+        <div class="modal-box max-w-4xl">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            <div class="py-4">
+                <img id="modal-image" src="" alt="查看图片" class="w-full h-auto max-h-[70vh] object-contain">
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+
+    <!-- Daily Export Modal -->
+    <dialog id="daily-export-modal" class="modal">
+        <div class="modal-box">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            
+            <h3 class="font-bold text-lg mb-4">导出一日记录</h3>
+            
+            <div class="form-control mb-4">
+                <label class="label">
+                    <span class="label-text">选择日期</span>
+                </label>
+                <input type="date" id="daily-export-date" class="input input-bordered w-full">
+                <div class="label">
+                    <span class="label-text-alt">将导出该日期凌晨3点到次日凌晨3点的消息</span>
+                </div>
+            </div>
+            
+            <div class="modal-action">
+                <button type="button" onclick="exportDailyRecord()" class="btn btn-primary">导出</button>
+                <form method="dialog">
+                    <button class="btn">取消</button>
+                </form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+
+    <!-- Avatar Update Modal -->
+    <dialog id="avatar-update-modal" class="modal">
+        <div class="modal-box max-w-2xl">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            
+            <h3 class="font-bold text-lg mb-4">更新头像缓存</h3>
+            
+            <!-- Status Display -->
+            <div id="avatar-status" class="mb-4">
+                <div class="alert alert-info">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>正在加载头像缓存信息...</span>
+                </div>
+            </div>
+            
+            <!-- Update Options -->
+            <div id="update-options" class="space-y-4 mb-6" style="display: none;">
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text">验证头像URL可用性</span>
+                        <input type="checkbox" id="validate-urls" class="checkbox">
+                    </label>
+                    <div class="label">
+                        <span class="label-text-alt">启用后会检查每个头像URL是否可访问，但会增加更新时间</span>
+                    </div>
+                </div>
+                
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">限制扫描消息数量（调试用）</span>
+                    </label>
+                    <input type="number" id="scan-limit" placeholder="留空扫描全部" class="input input-bordered">
+                </div>
+            </div>
+            
+            <!-- Progress Display -->
+            <div id="update-progress" style="display: none;">
+                <div class="mb-4">
+                    <div class="flex justify-between text-sm mb-1">
+                        <span id="progress-text">准备中...</span>
+                        <span id="progress-percent">0%</span>
+                    </div>
+                    <progress id="progress-bar" class="progress progress-primary w-full" value="0" max="100"></progress>
+                </div>
+            </div>
+            
+            <!-- Results Display -->
+            <div id="update-results" style="display: none;">
+                <div class="alert alert-success mb-4">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span id="results-summary">更新完成</span>
+                </div>
+                
+                <div class="collapse collapse-arrow bg-base-200">
+                    <input type="checkbox" />
+                    <div class="collapse-title text-sm font-medium">查看详细信息</div>
+                    <div class="collapse-content">
+                        <div id="results-details" class="text-xs space-y-1"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modal Actions -->
+            <div class="modal-action">
+                <button id="start-update-btn" onclick="startAvatarUpdate()" class="btn btn-primary">开始更新</button>
+                <button id="close-modal-btn" onclick="closeModal('avatar-update-modal')" class="btn">关闭</button>
+                <button id="reload-page-btn" onclick="location.reload()" class="btn btn-success" style="display: none;">刷新页面</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+
+    <script>
+        function openImageModal(imageUrl) {
+            document.getElementById('modal-image').src = imageUrl;
+            document.getElementById('image-modal').showModal();
+        }
+        
+        // Avatar update functionality
+        let updateInProgress = false;
+        
+        // Load avatar info when modal opens
+        document.getElementById('avatar-update-modal').addEventListener('show', loadAvatarInfo);
+        
+        function loadAvatarInfo() {
+            fetch('/avatars.json')
+                .then(response => response.json())
+                .then(data => {
+                    const statusDiv = document.getElementById('avatar-status');
+                    const lastUpdated = data.last_updated ? new Date(data.last_updated).toLocaleString() : '从未更新';
+                    
+                    statusDiv.innerHTML = `
+                        <div class="stats shadow">
+                            <div class="stat">
+                                <div class="stat-title">已缓存用户</div>
+                                <div class="stat-value text-primary">${data.total_cached}</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-title">上次更新</div>
+                                <div class="stat-desc">${lastUpdated}</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.getElementById('update-options').style.display = 'block';
+                })
+                .catch(error => {
+                    document.getElementById('avatar-status').innerHTML = `
+                        <div class="alert alert-error">
+                            <span>加载头像信息失败: ${error.message}</span>
+                        </div>
+                    `;
+                });
+        }
+        
+        function startAvatarUpdate() {
+            if (updateInProgress) return;
+            
+            updateInProgress = true;
+            document.getElementById('start-update-btn').disabled = true;
+            document.getElementById('update-options').style.display = 'none';
+            document.getElementById('update-progress').style.display = 'block';
+            document.getElementById('update-results').style.display = 'none';
+            
+            const validateUrls = document.getElementById('validate-urls').checked;
+            const scanLimit = document.getElementById('scan-limit').value;
+            
+            const requestData = {
+                validate: validateUrls
+            };
+            
+            if (scanLimit) {
+                requestData.limit = parseInt(scanLimit);
+            }
+            
+            fetch('/avatars/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                updateInProgress = false;
+                document.getElementById('update-progress').style.display = 'none';
+                
+                if (data.success) {
+                    showUpdateResults(data.result);
+                    document.getElementById('reload-page-btn').style.display = 'inline-flex';
+                } else {
+                    document.getElementById('update-results').innerHTML = `
+                        <div class="alert alert-error">
+                            <span>更新失败: ${data.error}</span>
+                        </div>
+                    `;
+                    document.getElementById('update-results').style.display = 'block';
+                    document.getElementById('start-update-btn').disabled = false;
+                }
+            })
+            .catch(error => {
+                updateInProgress = false;
+                document.getElementById('update-progress').style.display = 'none';
+                document.getElementById('update-results').innerHTML = `
+                    <div class="alert alert-error">
+                        <span>请求失败: ${error.message}</span>
+                    </div>
+                `;
+                document.getElementById('update-results').style.display = 'block';
+                document.getElementById('start-update-btn').disabled = false;
+            });
+            
+            // Start polling for progress
+            pollUpdateProgress();
+        }
+        
+        function pollUpdateProgress() {
+            if (!updateInProgress) return;
+            
+            fetch('/avatars/progress')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('progress-text').textContent = data.message || '处理中...';
+                    document.getElementById('progress-percent').textContent = `${data.progress}%`;
+                    document.getElementById('progress-bar').value = data.progress;
+                    
+                    if (data.status === 'running') {
+                        setTimeout(pollUpdateProgress, 500);
+                    }
+                })
+                .catch(error => {
+                    console.error('Progress polling error:', error);
+                    if (updateInProgress) {
+                        setTimeout(pollUpdateProgress, 1000);
+                    }
+                });
+        }
+        
+        function showUpdateResults(result) {
+            const summary = `新增 ${result.added} 个用户，更新 ${result.updated} 个用户，下载头像 ${result.downloaded} 个`;
+            document.getElementById('results-summary').textContent = summary;
+            
+            const detailsDiv = document.getElementById('results-details');
+            if (result.details && result.details.length > 0) {
+                detailsDiv.innerHTML = result.details.map(detail => `<div>${detail}</div>`).join('');
+            } else {
+                detailsDiv.innerHTML = '<div>无详细信息</div>';
+            }
+            
+            document.getElementById('update-results').style.display = 'block';
+        }
+        
+        // Load avatar info when modal is opened
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.showModal();
+            
+            if (modalId === 'avatar-update-modal') {
+                loadAvatarInfo();
+            }
+        }
+        
+        // Daily export functionality
+        function openDailyExportModal() {
+            const modal = document.getElementById('daily-export-modal');
+            const dateInput = document.getElementById('daily-export-date');
+            
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today;
+            
+            modal.showModal();
+        }
+        
+        function exportDailyRecord() {
+            const dateInput = document.getElementById('daily-export-date');
+            const selectedDate = dateInput.value;
+            
+            if (!selectedDate) {
+                alert('请选择一个日期');
+                return;
+            }
+            
+            // Build export URL
+            const exportUrl = `/export-daily.md?date=${selectedDate}`;
+            
+            // Open in new tab
+            window.open(exportUrl, '_blank');
+            
+            // Close modal
+            document.getElementById('daily-export-modal').close();
+        }
+    </script>
+{% endblock %}

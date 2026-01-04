@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}微博群聊记录查看器{% endblock %}</title>
+    
+    <!-- daisyUI + Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    
+    <style>
+        .highlight {
+            background-color: #fef08a;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+        .avatar-placeholder {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        /* Back to top button styles */
+        #back-to-top {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        #back-to-top.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        #back-to-top:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body class="bg-base-200 min-h-screen">
+    <!-- Navigation -->
+    <div class="navbar bg-base-100 shadow-lg">
+        <div class="navbar-start">
+            <a href="/" class="text-xl font-bold">微博群聊记录查看器</a>
+        </div>
+        <div class="navbar-end">
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container mx-auto max-w-5xl px-4 py-6">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer footer-center p-4 bg-base-300 text-base-content mt-8">
+        <div>
+            <p>微博群聊记录查看器 - 本地数据浏览工具</p>
+        </div>
+    </footer>
+
+    <!-- Back to Top Button -->
+    <button id="back-to-top" class="btn btn-circle btn-primary shadow-lg" onclick="scrollToTop()">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+        </svg>
+    </button>
+
+    <script>
+        // Modal handling
+        function openModal(modalId) {
+            document.getElementById(modalId).showModal();
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).close();
+        }
+        
+        // Speaker selection handling
+        function toggleSpeaker(uid, name) {
+            const checkbox = document.getElementById('speaker_' + uid);
+            const selectedList = document.getElementById('selected-speakers');
+            
+            if (checkbox.checked) {
+                const badge = document.createElement('div');
+                badge.className = 'badge badge-primary gap-2';
+                badge.id = 'badge_' + uid;
+                badge.innerHTML = `
+                    ${name}
+                    <button type="button" onclick="removeSpeaker('${uid}')" class="btn btn-ghost btn-xs">✕</button>
+                `;
+                selectedList.appendChild(badge);
+            } else {
+                const badge = document.getElementById('badge_' + uid);
+                if (badge) badge.remove();
+            }
+        }
+        
+        function removeSpeaker(uid) {
+            const checkbox = document.getElementById('speaker_' + uid);
+            const badge = document.getElementById('badge_' + uid);
+            if (checkbox) checkbox.checked = false;
+            if (badge) badge.remove();
+        }
+        
+        function applySpeakerFilter() {
+            const checkboxes = document.querySelectorAll('input[name="selected_speakers"]:checked');
+            const uids = Array.from(checkboxes).map(cb => cb.value);
+            
+            // Update the hidden input in the main form
+            const hiddenInput = document.getElementById('uids_input');
+            if (hiddenInput) {
+                hiddenInput.value = uids.join(',');
+            }
+            
+            closeModal('speaker-modal');
+            
+            // Submit the main form
+            document.getElementById('filter-form').submit();
+        }
+        
+        // Search speakers in modal
+        function searchSpeakers() {
+            const searchTerm = document.getElementById('speaker-search').value.toLowerCase();
+            const speakerItems = document.querySelectorAll('.speaker-item');
+            
+            speakerItems.forEach(item => {
+                const name = item.querySelector('.speaker-name').textContent.toLowerCase();
+                if (name.includes(searchTerm)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+        
+        // Back to top functionality
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+        
+        // Show/hide back to top button based on scroll position
+        window.addEventListener('scroll', function() {
+            const backToTopBtn = document.getElementById('back-to-top');
+            if (window.pageYOffset > 300) {
+                backToTopBtn.classList.add('show');
+            } else {
+                backToTopBtn.classList.remove('show');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!-- Filters Card -->
+<div class="card bg-base-100 shadow-xl mb-6" id="filters-card">
+    <div class="card-body">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="card-title">筛选条件</h2>
+            <button type="button" onclick="toggleFiltersCard()" class="btn btn-ghost btn-sm" id="toggle-filters-btn">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" id="toggle-icon">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <div id="filters-content">
+            <form id="filter-form" method="get" action="/" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Date Range - Only Start Date with Calendar -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">起始日期</span>
+                        </label>
+                        <input type="date" name="start" id="start-date" value="{{ filters.start }}" 
+                               class="input input-bordered w-full" onchange="autoApplyFilter()">
+                    </div>
+                
+                <!-- Keyword Search -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">关键词搜索</span>
+                    </label>
+                    <input type="text" name="q" value="{{ filters.q }}" 
+                           placeholder="搜索消息内容或发言人..." 
+                           class="input input-bordered w-full">
+                </div>
+                
+                <!-- Per Page -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">每页显示</span>
+                    </label>
+                    <select name="per_page" class="select select-bordered w-full">
+                        <option value="25" {% if filters.per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if filters.per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if filters.per_page == 100 %}selected{% endif %}>100</option>
+                        <option value="200" {% if filters.per_page == 200 %}selected{% endif %}>200</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Speaker Selection and Message Types -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <!-- Speaker Selection -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">发言人筛选</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="openModal('speaker-modal')" 
+                                class="btn btn-outline flex-1">
+                            选择发言人 
+                            {% if selected_speakers_count > 0 %}
+                                <span class="badge badge-primary">{{ selected_speakers_count }}</span>
+                            {% endif %}
+                        </button>
+                        {% if filters.uids %}
+                            <button type="button" onclick="clearSpeakers()" class="btn btn-ghost btn-sm">清除</button>
+                        {% endif %}
+                    </div>
+                    <input type="hidden" id="uids_input" name="uids" value="{{ filters.uids }}">
+                    
+                    <!-- Selected speakers display -->
+                    {% if selected_speakers %}
+                        <div class="mt-2 flex flex-wrap gap-1">
+                            {% for speaker in selected_speakers %}
+                                <div class="badge badge-primary gap-2">
+                                    {{ speaker.name }}
+                                    <button type="button" onclick="removeSpeakerFromFilter('{{ speaker.uid }}')" 
+                                            class="btn btn-ghost btn-xs">✕</button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Message Types -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">消息类型</span>
+                    </label>
+                    <div class="grid grid-cols-2 gap-2">
+                        {% for msg_type in all_types %}
+                            <label class="label cursor-pointer justify-start gap-2">
+                                <input type="checkbox" name="types" value="{{ msg_type }}" 
+                                       {% if msg_type in filters.types %}checked{% endif %}
+                                       class="checkbox checkbox-sm">
+                                <span class="label-text text-sm">
+                                    {% if msg_type == 'type:321' %}普通消息
+                                    {% elif msg_type == 'type:344' %}撤回消息
+                                    {% elif msg_type == 'type:100' %}发布微博
+                                    {% elif msg_type == 'type:323' %}退群消息
+                                    {% elif msg_type == 'type:322' %}加群消息
+                                    {% elif msg_type == 'type:337' %}群管理操作
+                                    {% else %}{{ msg_type }}
+                                    {% endif %}
+                                </span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="card-actions justify-end">
+                <div class="flex gap-2 flex-wrap">
+                    <button type="submit" class="btn btn-primary">应用筛选</button>
+                    <div class="dropdown dropdown-top">
+                        <div tabindex="0" role="button" class="btn btn-outline">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            导出
+                        </div>
+                        <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
+                            <li><a href="{{ export_url }}" target="_blank">导出当前筛选结果</a></li>
+                            <li><a href="#" onclick="openDailyExportModal()">导出一日记录</a></li>
+                        </ul>
+                    </div>
+                    <a href="/" class="btn btn-ghost">重置</a>
+                </div>
+            </div>
+            
+            <!-- Results Summary -->
+            {% if total_results is defined %}
+                <div class="alert alert-info">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>找到 <strong>{{ total_results }}</strong> 条符合条件的消息</span>
+                </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<script>
+function clearSpeakers() {
+    document.getElementById('uids_input').value = '';
+    document.getElementById('filter-form').submit();
+}
+
+function removeSpeakerFromFilter(uid) {
+    const hiddenInput = document.getElementById('uids_input');
+    const currentUids = hiddenInput.value.split(',').filter(u => u && u !== uid);
+    hiddenInput.value = currentUids.join(',');
+    document.getElementById('filter-form').submit();
+}
+
+// Toggle filters card visibility
+function toggleFiltersCard() {
+    const content = document.getElementById('filters-content');
+    const icon = document.getElementById('toggle-icon');
+    const isHidden = content.style.display === 'none';
+    
+    if (isHidden) {
+        content.style.display = 'block';
+        icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>';
+    } else {
+        content.style.display = 'none';
+        icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>';
+    }
+}
+
+// Auto apply filter when date changes
+function autoApplyFilter() {
+    document.getElementById('filter-form').submit();
+}
+
+// Set default start date to today and auto-apply on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const startDateInput = document.getElementById('start-date');
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // If no start date is set and no other filters are applied, set today's date and apply
+    if (!startDateInput.value && !urlParams.has('start') && !urlParams.has('q') && !urlParams.has('uids') && !urlParams.has('types')) {
+        const today = new Date().toISOString().split('T')[0];
+        startDateInput.value = today;
+        autoApplyFilter();
+    }
+});
+</script>
