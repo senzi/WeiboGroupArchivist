@@ -51,7 +51,27 @@
         <div class="navbar-start">
             <a href="/" class="text-xl font-bold">微博群聊记录查看器</a>
         </div>
-        <div class="navbar-end">
+        <div class="navbar-end gap-2">
+            {% if available_records %}
+            <div class="dropdown dropdown-end">
+                <div tabindex="0" role="button" class="btn btn-ghost btn-sm normal-case">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                    {{ dataset_info.filename if dataset_info else '选择记录' }}
+                </div>
+                <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-64 p-2 shadow-xl border border-base-200">
+                    <li class="menu-title text-xs opacity-50">切换聊天记录</li>
+                    {% for record in available_records %}
+                    <li>
+                        <a href="/?source={{ record }}" class="{% if dataset_info and dataset_info.filename == record %}active{% endif %}">
+                            <span class="truncate">{{ record }}</span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
         </div>
     </div>
 

@@ -56,10 +56,10 @@
     </dialog>
 
     <script>
-        let currentStartIdx = {{ current_start_idx }};
-        let currentEndIdx = {{ current_end_idx }};
-        const dayStartIdx = {{ day_start_idx }};
-        const dayEndIdx = {{ day_end_idx }};
+        let currentStartIdx = Number("{{ current_start_idx }}") || 0;
+        let currentEndIdx = Number("{{ current_end_idx }}") || 0;
+        const dayStartIdx = Number("{{ day_start_idx }}") || 0;
+        const dayEndIdx = Number("{{ day_end_idx }}") || 0;
 
         function openImageModal(imageUrl) {
             document.getElementById('modal-image').src = imageUrl;

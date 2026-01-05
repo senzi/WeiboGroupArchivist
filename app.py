@@ -15,7 +15,7 @@ import requests
 from threading import Lock
 
 from urllib.parse import quote
-from flask import Flask, render_template, request, jsonify, Response, url_for, send_from_directory
+from flask import Flask, render_template, request, jsonify, Response, url_for, send_from_directory, redirect
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 
@@ -47,10 +47,11 @@ def avatar_src(from_uid: int | str, size: int = 96) -> str:
     return url_for("avatar_svg", uid=uid, size=size)
 
 # Configuration
-NDJSON_PATH = os.environ.get('WEIBO_NDJSON', 'chat_records/all.ndjson')
+CHAT_RECORDS_DIR = 'chat_records'
+DEFAULT_NDJSON = 'all.ndjson'
 TIMEZONE = os.environ.get('WEIBO_TZ', 'Asia/Shanghai')
 PAGE_SIZE = int(os.environ.get('WEIBO_PAGE_SIZE', '50'))
-AVATARS_CACHE_PATH = os.path.join(os.path.dirname(NDJSON_PATH), 'avatars.json')
+AVATARS_CACHE_PATH = os.path.join(CHAT_RECORDS_DIR, 'avatars.json')
 
 # Global data storage
 messages_data = []
@@ -61,15 +62,36 @@ avatars_cache = {}
 update_lock = Lock()
 update_progress = {'status': 'idle', 'progress': 0, 'message': '', 'result': None}
 
-def load_and_process_data():
+def get_available_records():
+    """Get list of available ndjson files in chat_records directory"""
+    records = []
+    if os.path.exists(CHAT_RECORDS_DIR):
+        for file in os.listdir(CHAT_RECORDS_DIR):
+            if file.endswith('.ndjson'):
+                records.append(file)
+    return sorted(records)
+
+def load_and_process_data(filename=None):
     """Load NDJSON data and build indexes"""
     global messages_data, users_cache, all_types, dataset_info
     
-    if not os.path.exists(NDJSON_PATH):
-        print(f"Warning: Data file {NDJSON_PATH} not found")
-        return
+    if filename is None:
+        filename = DEFAULT_NDJSON
+        
+    ndjson_path = os.path.join(CHAT_RECORDS_DIR, filename)
     
-    print(f"Loading data from {NDJSON_PATH}...")
+    if not os.path.exists(ndjson_path):
+        print(f"Warning: Data file {ndjson_path} not found")
+        # Try fallback to any available record if default is missing
+        available = get_available_records()
+        if available:
+            filename = available[0]
+            ndjson_path = os.path.join(CHAT_RECORDS_DIR, filename)
+            print(f"Falling back to {ndjson_path}")
+        else:
+            return
+    
+    print(f"Loading data from {ndjson_path}...")
     
     messages_data = []
     users_cache = {}
@@ -78,7 +100,7 @@ def load_and_process_data():
     
     tz = pytz.timezone(TIMEZONE)
     
-    with open(NDJSON_PATH, 'r', encoding='utf-8') as f:
+    with open(ndjson_path, 'r', encoding='utf-8') as f:
         for line_num, line in enumerate(f, 1):
             line = line.strip()
             if not line:
@@ -230,7 +252,8 @@ def load_and_process_data():
         earliest = messages_data[0]['time_local']
         latest = messages_data[-1]['time_local']
         dataset_info = {
-            'path': NDJSON_PATH,
+            'path': ndjson_path,
+            'filename': filename,
             'timezone': TIMEZONE,
             'time_range': f"{earliest.strftime('%Y-%m-%d')} 至 {latest.strftime('%Y-%m-%d')}",
             'total_messages': len(messages_data),
@@ -351,7 +374,7 @@ def download_avatar_image(url, uid, timeout=10):
     
     try:
         # Create avatars directory
-        avatars_dir = os.path.join(os.path.dirname(NDJSON_PATH), 'avatars')
+        avatars_dir = os.path.join(CHAT_RECORDS_DIR, 'avatars')
         os.makedirs(avatars_dir, exist_ok=True)
         
         # Generate filename from URL
@@ -711,6 +734,17 @@ def build_pagination(total_items, page, per_page, base_url, query_params):
 @app.route('/')
 def index():
     """Main page with message list"""
+    # Handle data source switching
+    source = request.args.get('source')
+    if source and source != dataset_info.get('filename'):
+        load_and_process_data(source)
+        # Redirect to clear source param and avoid reloading on every refresh
+        params = dict(request.args)
+        params.pop('source', None)
+        if params:
+            return redirect(url_for('index', **params))
+        return redirect(url_for('index'))
+
     # Parse filters from query parameters
     filters = {
         'start': request.args.get('start', ''),
@@ -785,7 +819,8 @@ def index():
         current_speaker_uids=current_speaker_uids,
         all_types=sorted(all_types),
         export_url=export_url,
-        dataset_info=dataset_info
+        dataset_info=dataset_info,
+        available_records=get_available_records()
     )
 
 @app.route('/users.json')
@@ -1148,5 +1183,4 @@ def where():
 
 if __name__ == '__main__':
     load_and_process_data()
-    app.run(debug=True, host='0.0.0.0', port=5000,
-            extra_files=['chat_records/all.ndjson'])
+    app.run(debug=True, host='0.0.0.0', port=5000)
