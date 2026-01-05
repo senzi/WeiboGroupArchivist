@@ -1,2 +1,69 @@
 # WeiboGroupArchivist
-A lightweight Flask-based web viewer for browsing and searching Weibo group chat histories.
+
+一个轻量级的 Flask 微博群聊记录查看器，用于浏览、搜索和导出微博群聊历史。
+
+## 功能特性
+
+- **记录浏览**：以聊天卡片形式展示消息，支持图片预览。
+- **强大搜索**：支持按关键词、发言人、日期范围和消息类型进行筛选。
+- **多记录切换**：支持在 `chat_records` 目录下的多个 `.ndjson` 文件间无缝切换。
+- **上下文查看**：点击消息时间可进入上下文模式，查看前后关联对话。
+- **导出功能**：支持将筛选后的记录或每日聊天记录导出为 Markdown 文件。
+- **头像显示**：支持显示用户头像，并提供基于 UID 生成的彩色占位图。
+
+## 快速开始
+
+### 1. 安装依赖
+
+确保已安装 Python 3.8+，然后安装所需依赖：
+
+```bash
+pip install flask requests pytz
+```
+
+### 2. 准备数据
+
+1.  在项目根目录下创建 `chat_records` 文件夹（如果不存在）。
+2.  将你的微博群聊记录（**仅限 .ndjson 格式**）放入 `chat_records` 目录。
+3.  默认加载 `all.ndjson`，你也可以在界面上切换其他文件。
+
+### 3. 下载头像（可选）
+
+如果你想在界面上看到真实的群员头像，请在放置聊天记录后运行：
+
+```bash
+python download_avatars.py
+```
+
+该脚本会扫描所有 `.ndjson` 文件，提取头像 URL 并下载到 `static/avatars` 目录。
+
+### 4. 运行应用
+
+```bash
+python app.py
+```
+
+访问 `http://localhost:5000` 即可开始浏览。
+
+## 注意事项
+
+- **数据格式**：目前仅适配 `.ndjson` 格式的聊天记录。
+- **性能说明**：当前版本将数据全量加载至内存进行处理，对于超大规模（如数十万条以上）的聊天记录可能会有性能瓶颈。
+- **图片显示**：图片通过百度图片搜索接口进行反代显示，以绕过微博图片的防盗链。
+
+## 目录结构
+
+- `app.py`: Flask 后端核心逻辑。
+- `download_avatars.py`: 头像批量下载工具。
+- `chat_records/`: 存放 `.ndjson` 聊天记录文件。
+- `static/avatars/`: 存放下载后的本地头像。
+- `templates/`: Jinja2 模板文件。
+- `doc/`: 项目文档，包含 `微博群聊NDJSON数据结构指南.md`。
+
+## 数据结构参考
+
+如果你需要编写自定义的数据分析脚本，或者想要深入了解本项目处理的数据格式，可以参考 [doc/微博群聊NDJSON数据结构指南.md](doc/微博群聊NDJSON数据结构指南.md)。该文档详细描述了微博群聊 NDJSON 的字段含义，非常适合提供给 LLM（如 ChatGPT/Claude）作为上下文，以辅助编写脚本或进行功能优化。
+
+## 开源协议
+
+[MIT License](LICENSE)
