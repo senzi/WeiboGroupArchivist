@@ -1,0 +1,132 @@
+{% extends "layout.html" %}
+
+{% block title %}上下文 - {{ date_str }} - 微博群聊记录查看器{% endblock %}
+
+{% block content %}
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <h2 class="text-2xl font-bold">上下文查看</h2>
+            <p class="text-base-content/70">{{ date_str }} (凌晨3点至次日凌晨3点)</p>
+        </div>
+        <a href="javascript:window.close();" class="btn btn-ghost">关闭窗口</a>
+    </div>
+
+    <!-- Load More Above -->
+    <div class="flex justify-center mb-4">
+        <button id="load-above-btn" class="btn btn-outline btn-sm {% if not has_more_above %}hidden{% endif %}" 
+                onclick="loadMore('above')">
+            加载更多上方消息
+        </button>
+    </div>
+
+    <!-- Messages List -->
+    <div class="space-y-4" id="message-container">
+        {% if messages %}
+            {% for message in messages %}
+                <div id="msg-{{ message.id }}" class="{% if message.id|string == target_id|string %}ring-4 ring-primary ring-offset-2 rounded-xl{% endif %}">
+                    {% include "_message_card.html" %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-error">未找到相关消息</div>
+        {% endif %}
+    </div>
+
+    <!-- Load More Below -->
+    <div class="flex justify-center mt-4">
+        <button id="load-below-btn" class="btn btn-outline btn-sm {% if not has_more_below %}hidden{% endif %}" 
+                onclick="loadMore('below')">
+            加载更多下方消息
+        </button>
+    </div>
+
+    <!-- Image Modal (Reused from index) -->
+    <dialog id="image-modal" class="modal">
+        <div class="modal-box max-w-4xl">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            <div class="py-4">
+                <img id="modal-image" src="" alt="查看图片" class="w-full h-auto max-h-[70vh] object-contain">
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+
+    <script>
+        let currentStartIdx = {{ current_start_idx }};
+        let currentEndIdx = {{ current_end_idx }};
+        const dayStartIdx = {{ day_start_idx }};
+        const dayEndIdx = {{ day_end_idx }};
+
+        function openImageModal(imageUrl) {
+            document.getElementById('modal-image').src = imageUrl;
+            document.getElementById('image-modal').showModal();
+        }
+
+        async function loadMore(direction) {
+            const btn = direction === 'above' ? document.getElementById('load-above-btn') : document.getElementById('load-below-btn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '加载中...';
+
+            try {
+                const params = new URLSearchParams({
+                    start_idx: currentStartIdx,
+                    end_idx: currentEndIdx,
+                    direction: direction,
+                    day_start: dayStartIdx,
+                    day_end: dayEndIdx
+                });
+
+                const response = await fetch(`/context/more?${params.toString()}`);
+                const data = await response.json();
+
+                if (data.html) {
+                    const container = document.getElementById('message-container');
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = data.html;
+                    
+                    if (direction === 'above') {
+                        // Prepend messages
+                        while (tempDiv.lastChild) {
+                            container.insertBefore(tempDiv.lastChild, container.firstChild);
+                        }
+                        currentStartIdx = data.updated_idx;
+                        if (!data.has_more) btn.classList.add('hidden');
+                    } else {
+                        // Append messages
+                        while (tempDiv.firstChild) {
+                            container.appendChild(tempDiv.firstChild);
+                        }
+                        currentEndIdx = data.updated_idx;
+                        if (!data.has_more) btn.classList.add('hidden');
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load more messages:', error);
+                alert('加载失败，请重试');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        // Scroll to target message on load
+        document.addEventListener('DOMContentLoaded', function() {
+            const targetId = "{{ target_id }}";
+            const targetElement = document.getElementById('msg-' + targetId);
+            if (targetElement) {
+                // Use a small delay to ensure layout is stable
+                setTimeout(() => {
+                    targetElement.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                }, 300);
+            }
+        });
+    </script>
+{% endblock %}

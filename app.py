@@ -995,6 +995,116 @@ def export_daily_markdown():
         return f"Error processing request: {str(e)}", 500
 
 
+@app.route('/context/<message_id>')
+def view_context(message_id):
+    """View context for a specific message (limited initial window)"""
+    # Find the target message and its index
+    target_idx = -1
+    for i, m in enumerate(messages_data):
+        if str(m['id']) == str(message_id):
+            target_idx = i
+            break
+            
+    if target_idx == -1:
+        return "Message not found", 404
+    
+    target_msg = messages_data[target_idx]
+    
+    # Get the day range (3AM to 3AM)
+    msg_time = target_msg['time_local']
+    if msg_time.hour < 3:
+        base_date = (msg_time - timedelta(days=1)).date()
+    else:
+        base_date = msg_time.date()
+    
+    tz = pytz.timezone(TIMEZONE)
+    start_time = tz.localize(datetime.combine(base_date, datetime.min.time()).replace(hour=3))
+    start_utc = start_time.astimezone(timezone.utc)
+    end_time = start_time + timedelta(days=1)
+    end_utc = end_time.astimezone(timezone.utc)
+    
+    # Find all messages for that day to know the boundaries
+    day_messages_indices = [
+        i for i, m in enumerate(messages_data)
+        if start_utc <= m['time_utc'] < end_utc
+    ]
+    
+    if not day_messages_indices:
+        return "No messages found for this day", 404
+        
+    day_start_idx = day_messages_indices[0]
+    day_end_idx = day_messages_indices[-1]
+    
+    # Initial window: target -10/+30 messages, but stay within day boundaries
+    view_start_idx = max(day_start_idx, target_idx - 10)
+    view_end_idx = min(day_end_idx, target_idx + 30)
+    
+    context_messages = messages_data[view_start_idx:view_end_idx + 1]
+    
+    # Enhance messages with avatar info
+    for message in context_messages:
+        avatar_info = get_user_avatar_info(message['from_uid'])
+        message['sender_name'] = avatar_info['name']
+        message['avatar_url'] = avatar_info['avatar_url']
+        message['avatar_source'] = avatar_info['source']
+        if not message['avatar_url']:
+            message['avatar_fallback'] = url_for('avatar_svg', uid=message['from_uid'])
+
+    return render_template('context.html',
+        messages=context_messages,
+        target_id=message_id,
+        date_str=base_date.strftime('%Y-%m-%d'),
+        dataset_info=dataset_info,
+        has_more_above=(view_start_idx > day_start_idx),
+        has_more_below=(view_end_idx < day_end_idx),
+        current_start_idx=view_start_idx,
+        current_end_idx=view_end_idx,
+        day_start_idx=day_start_idx,
+        day_end_idx=day_end_idx
+    )
+
+@app.route('/context/more')
+def load_more_context():
+    """API to load more messages for context"""
+    start_idx = int(request.args.get('start_idx'))
+    end_idx = int(request.args.get('end_idx'))
+    direction = request.args.get('direction') # 'above' or 'below'
+    day_start = int(request.args.get('day_start'))
+    day_end = int(request.args.get('day_end'))
+    
+    window_size = 30
+    
+    if direction == 'above':
+        new_start = max(day_start, start_idx - window_size)
+        new_end = start_idx - 1
+        messages = messages_data[new_start:new_end + 1]
+        has_more = (new_start > day_start)
+        updated_idx = new_start
+    else:
+        new_start = end_idx + 1
+        new_end = min(day_end, end_idx + window_size)
+        messages = messages_data[new_start:new_end + 1]
+        has_more = (new_end < day_end)
+        updated_idx = new_end
+
+    # Enhance messages
+    for message in messages:
+        avatar_info = get_user_avatar_info(message['from_uid'])
+        message['sender_name'] = avatar_info['name']
+        message['avatar_url'] = avatar_info['avatar_url']
+        message['avatar_source'] = avatar_info['source']
+        if not message['avatar_url']:
+            message['avatar_fallback'] = url_for('avatar_svg', uid=message['from_uid'])
+            
+    # Render only the message cards
+    html = "".join([render_template('_message_card.html', message=m) for m in messages])
+    
+    return jsonify({
+        'html': html,
+        'has_more': has_more,
+        'updated_idx': updated_idx
+    })
+
 @app.route('/avatar/<uid>.svg')
 def avatar_svg(uid):
     """Generate SVG avatar for user"""
